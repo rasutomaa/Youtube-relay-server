@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>検索: {{ query }}</title>
+<style type="text/css">
+body {
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+    background: #f5f5f5;
+    color: #333;
+}
+.header {
+    background: #cc0000;
+    color: #fff;
+    padding: 8px 12px;
+}
+.header a {
+    color: #fff;
+    text-decoration: none;
+    font-size: 18px;
+    font-weight: bold;
+}
+.search-bar {
+    padding: 8px 12px;
+    background: #fff;
+    border-bottom: 1px solid #ddd;
+}
+.search-bar input[type=text] {
+    width: 68%;
+    padding: 5px;
+    font-size: 14px;
+    border: 1px solid #999;
+}
+.search-bar input[type=submit] {
+    padding: 5px 10px;
+    font-size: 14px;
+    background: #cc0000;
+    color: #fff;
+    border: 1px solid #aa0000;
+}
+.results {
+    padding: 4px 12px;
+}
+.video-item {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 8px;
+    margin: 8px 0;
+}
+.video-item a {
+    text-decoration: none;
+    color: #333;
+}
+.video-thumb {
+    width: 120px;
+    height: 68px;
+    background: #eee;
+}
+.video-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #1a0dab;
+}
+.video-meta {
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+}
+.no-results {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+    <a href="/">&#9654; YouTube</a>
+</div>
+
+<div class="search-bar">
+    <form action="/search" method="get">
+        <input type="text" name="q" value="{{ query }}">
+        <input type="submit" value="検索">
+    </form>
+</div>
+
+<div class="results">
+{% if results %}
+    {% for video in results %}
+    <div class="video-item">
+        <a href="/watch/{{ video.id }}">
+            <table cellpadding="0" cellspacing="0" border="0"><tr>
+                <td valign="top">
+                    <img class="video-thumb" src="/thumb/{{ video.id }}" alt="">
+                </td>
+                <td valign="top" style="padding-left: 8px;">
+                    <div class="video-title">{{ video.title }}</div>
+                    <div class="video-meta">
+                        {{ video.channel }}<br>
+                        {{ video.duration|duration }}
+                    </div>
+                </td>
+            </tr></table>
+        </a>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="no-results">
+        <p>「{{ query }}」の検索結果はありませんでした。</p>
+        <p><a href="/">トップに戻る</a></p>
+    </div>
+{% endif %}
+</div>
+
+</body>
+</html>

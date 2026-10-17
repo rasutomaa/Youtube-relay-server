@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+{% if task.status != 'ready' and task.status != 'error' %}
+<meta http-equiv="refresh" content="3">
+{% endif %}
+<title>{{ task.title or '準備中...' }}</title>
+<style type="text/css">
+body {
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+    background: #f5f5f5;
+    color: #333;
+}
+.header {
+    background: #cc0000;
+    color: #fff;
+    padding: 8px 12px;
+}
+.header a {
+    color: #fff;
+    text-decoration: none;
+    font-size: 18px;
+    font-weight: bold;
+}
+.content {
+    padding: 12px;
+}
+.title {
+    font-size: 16px;
+    font-weight: bold;
+    margin: 8px 0;
+}
+.status-box {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 16px;
+    margin: 12px 0;
+    text-align: center;
+}
+.progress-bg {
+    background: #ddd;
+    height: 16px;
+    margin: 12px 0;
+    width: 100%;
+}
+.progress-fill {
+    background: #cc0000;
+    height: 16px;
+}
+.play-btn {
+    display: inline-block;
+    padding: 14px 32px;
+    background: #cc0000;
+    color: #fff;
+    text-decoration: none;
+    font-size: 20px;
+    font-weight: bold;
+    border: 1px solid #aa0000;
+}
+.status-msg {
+    font-size: 14px;
+    color: #666;
+    margin: 8px 0;
+}
+.error-msg {
+    color: #cc0000;
+    font-size: 13px;
+    margin: 8px 0;
+    word-wrap: break-word;
+}
+.ok-mark {
+    color: #090;
+    font-size: 24px;
+    font-weight: bold;
+}
+.nav {
+    margin-top: 16px;
+    font-size: 14px;
+}
+.nav a {
+    color: #1a0dab;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+    <a href="/">&#9654; YouTube</a>
+</div>
+
+<div class="content">
+    <div class="title">{{ task.title or '準備中...' }}</div>
+
+    <div class="status-box">
+    {% if task.status == 'ready' %}
+        <div class="ok-mark">&#10004;</div>
+        <p>準備完了!</p>
+        <p>
+            <a class="play-btn" href="/video/{{ video_id }}">&#9654; 再生する</a>
+        </p>
+    {% elif task.status == 'error' %}
+        <p style="font-size:24px; color:#cc0000;">&#10008;</p>
+        <p class="error-msg">エラーが発生しました</p>
+        {% if task.error %}
+        <p class="error-msg" style="font-size:11px;">{{ task.error[:200] }}</p>
+        {% endif %}
+        <p><a href="/watch/{{ video_id }}">再試行する</a></p>
+    {% elif task.status == 'transcoding' %}
+        <p class="status-msg">動画を変換しています...</p>
+        <div class="progress-bg">
+            <div class="progress-fill" style="width:{{ task.progress }}%;"></div>
+        </div>
+        <p class="status-msg">しばらくお待ちください<br>(このページは自動で更新されます)</p>
+    {% else %}
+        <p class="status-msg">動画をダウンロードしています...</p>
+        <div class="progress-bg">
+            <div class="progress-fill" style="width:{{ task.progress }}%;"></div>
+        </div>
+        <p class="status-msg">しばらくお待ちください<br>(このページは自動で更新されます)</p>
+    {% endif %}
+    </div>
+
+    <div class="nav">
+        <a href="/">&#8592; トップに戻る</a>
+    </div>
+</div>
+
+</body>
+</html>
