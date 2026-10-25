@@ -12,6 +12,7 @@ import subprocess
 import threading
 import time
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 from flask import (
@@ -25,11 +26,13 @@ app = Flask(__name__)
 BASE_DIR = Path(__file__).parent.resolve()
 CACHE_DIR = BASE_DIR / 'cache'
 CACHE_DIR.mkdir(exist_ok=True)
+HISTORY_FILE = BASE_DIR / 'history.jsonl'
 
 # 動画準備タスクの状態管理
 # video_id -> {status, progress, title, error}
 tasks = {}
 tasks_lock = threading.Lock()
+history_lock = threading.Lock()
 
 # --- ユーティリティ ---
 
@@ -68,6 +71,93 @@ def format_duration(seconds):
 def validate_video_id(video_id):
     """YouTube動画IDの形式を検証"""
     return bool(re.match(r'^[a-zA-Z0-9_-]{11}$', video_id))
+
+
+# --- 視聴履歴 ---
+
+def parse_device_info(user_agent):
+    """User-Agentから端末情報を抽出"""
+    if not user_agent:
+        return '不明な端末'
+
+    # Android端末
+    m = re.search(r'Android\s*([\d.]+);\s*[^;]*;\s*([^)]+)', user_agent)
+    if m:
+        android_ver = m.group(1)
+        model = m.group(2).strip()
+        # "Build/..." を除去
+        model = re.sub(r'\s*Build/.*', '', model).strip()
+        return f'{model} (Android {android_ver})'
+
+    # Android（モデル名が取れない場合）
+    m = re.search(r'Android\s*([\d.]+)', user_agent)
+    if m:
+        return f'Android {m.group(1)}'
+
+    # iPhone / iPad
+    m = re.search(r'(iPhone|iPad)', user_agent)
+    if m:
+        return m.group(1)
+
+    # PC ブラウザ
+    if 'Windows' in user_agent:
+        browser = 'ブラウザ'
+        if 'Firefox' in user_agent:
+            browser = 'Firefox'
+        elif 'Chrome' in user_agent:
+            browser = 'Chrome'
+        elif 'Edge' in user_agent:
+            browser = 'Edge'
+        return f'Windows PC ({browser})'
+
+    if 'Macintosh' in user_agent:
+        return 'Mac'
+
+    if 'Linux' in user_agent:
+        return 'Linux PC'
+
+    return user_agent[:50]
+
+
+def record_history(video_id, title, request_obj):
+    """視聴履歴を記録"""
+    user_agent = request_obj.headers.get('User-Agent', '')
+    device = parse_device_info(user_agent)
+    ip = request_obj.remote_addr or ''
+
+    entry = {
+        'video_id': video_id,
+        'title': title,
+        'device': device,
+        'ip': ip,
+        'user_agent': user_agent,
+        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+    }
+
+    with history_lock:
+        with open(HISTORY_FILE, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+
+
+def get_history(limit=50):
+    """視聴履歴を新しい順に取得"""
+    if not HISTORY_FILE.exists():
+        return []
+
+    entries = []
+    with history_lock:
+        with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        entries.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        pass
+
+    # 新しい順
+    entries.reverse()
+    return entries[:limit]
 
 
 # --- YouTube検索 ---
@@ -281,8 +371,20 @@ def video(video_id):
     if not path.exists():
         return '動画が見つかりません', 404
 
-    file_size = path.stat().st_size
+    # 視聴履歴を記録（初回リクエスト=Range無しの時のみ）
     range_header = request.headers.get('Range')
+    if not range_header:
+        title = ''
+        info_path = get_info_path(video_id)
+        if info_path.exists():
+            try:
+                with open(info_path, 'r', encoding='utf-8') as f:
+                    title = json.load(f).get('title', '')
+            except Exception:
+                pass
+        record_history(video_id, title, request)
+
+    file_size = path.stat().st_size
 
     if range_header:
         match = re.match(r'bytes=(\d+)-(\d*)', range_header)
@@ -353,6 +455,22 @@ def clear_cache():
     with tasks_lock:
         tasks.clear()
     return f'{count}個のファイルを削除しました。<br><a href="/">トップに戻る</a>'
+
+
+@app.route('/history')
+def history():
+    """視聴履歴ページ"""
+    entries = get_history(limit=100)
+    return render_template('history.html', entries=entries)
+
+
+@app.route('/history/clear')
+def clear_history():
+    """視聴履歴を全削除"""
+    with history_lock:
+        if HISTORY_FILE.exists():
+            HISTORY_FILE.unlink()
+    return redirect(url_for('history'))
 
 
 # --- テンプレートフィルター ---
